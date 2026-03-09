@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>דשבורד בקרת זיהומים – דורות</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Heebo', sans-serif; }
+        body { background: #f1f5f9; }
+
+        /* ── Logo ── */
+        .site-header { background: white; border-bottom: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .hospital-banner { width: 100%; background: white; }
+        .hospital-banner img { width: 100%; height: auto; display: block; }
+        .banner-text { background: white; text-align: right; padding: 14px 40px 16px; border-bottom: 2px solid #e2e8f0; }
+        .banner-title { color: #1e3a5f; font-size: 1.75rem; font-weight: 900; line-height: 1.2; }
+        .banner-subtitle { color: #475569; font-size: 0.95rem; font-weight: 500; margin-top: 2px; }
+
+        /* ── Main tabs ── */
+        .main-tab-bar { background: white; border-bottom: 2px solid #e2e8f0; }
+        .main-tab { padding: 14px 24px; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; white-space: nowrap; }
+        .main-tab:hover { color: #1e293b; }
+        .main-tab.active { color: #0d7377; border-bottom-color: #0d7377; }
+
+        /* ── Period mini-tabs ── */
+        .period-tab-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+        .period-tab { padding: 6px 16px; font-size: 0.8rem; font-weight: 600; border-radius: 99px; cursor: pointer; border: 1.5px solid #e2e8f0; color: #64748b; background: white; transition: all 0.15s; }
+        .period-tab:hover { border-color: #0d7377; color: #0d7377; }
+        .period-tab.active { background: #0d7377; color: white; border-color: #0d7377; }
+
+        /* ── Cards ── */
+        .card { background: white; border-radius: 14px; padding: 24px 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border: 1px solid #e2e8f0; }
+        .card-title { font-size: 1rem; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+        .card-sub { font-size: 0.82rem; color: #64748b; }
+        .chart-box { width: 100%; height: 380px; }
+
+        /* ── Hero ── */
+        .hero { background: linear-gradient(135deg, #14532d 0%, #166534 100%); color: white; border-radius: 16px; }
+        .hero-badge { background: #4ade80; color: #14532d; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 99px; letter-spacing: 0.05em; display: inline-block; }
+        .hero-number { font-size: 5rem; font-weight: 900; line-height: 1; color: #86efac; }
+        .hero-caption { color: #bbf7d0; font-size: 0.95rem; }
+
+        /* ── KPI ── */
+        .kpi-value { font-size: 2.4rem; font-weight: 800; color: #1e293b; line-height: 1.1; }
+        .kpi-label { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+        .kpi-context { font-size: 0.78rem; color: #94a3b8; margin-top: 2px; }
+
+        /* ── Bars ── */
+        .score-bar-bg { background: #e2e8f0; border-radius: 99px; height: 10px; width: 100%; }
+        .score-bar-fill { border-radius: 99px; height: 10px; }
+
+        /* ── CTA / improve ── */
+        .cta-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px 24px; }
+        .cta-step { display: flex; gap: 12px; align-items: flex-start; }
+        .cta-num { min-width: 28px; height: 28px; border-radius: 50%; background: #2563eb; color: white; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .improve-box { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; }
+
+        /* ── Section label ── */
+        .section-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; margin-bottom: 16px; }
+
+        /* ── Placeholder ── */
+        .placeholder-pane { background: white; border-radius: 16px; border: 2px dashed #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 320px; color: #94a3b8; }
+
+        /* ── Tab panels ── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        @media (max-width: 640px) { .hero-number { font-size: 3.5rem; } .main-tab { padding: 12px 14px; font-size: 0.85rem; } }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ══════════════════════════════════════
+     SITE HEADER  (logo + title)
+══════════════════════════════════════ -->
+<header class="site-header">
+    <div class="max-w-6xl mx-auto px-5 md:px-10 py-3 flex items-center justify-between gap-4">
+        <img src="logo.png" alt="דורות – מרכז רפואי לשיקום וגריאטריה" style="height:56px; width:auto;" />
+    </div>
+</header>
+
+<div class="hospital-banner">
+    <img src="hospital.jpg" alt="מרכז רפואי דורות" />
+    <div class="banner-text">
+        <div class="banner-title">דשבורד בקרת זיהומים</div>
+        <div class="banner-subtitle">מפקחת אפידימיולוגית: גב׳ מרגלית בן שימול</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MAIN TABS
+══════════════════════════════════════ -->
+<div class="main-tab-bar sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-5 md:px-10 flex overflow-x-auto">
+        <button class="main-tab active" onclick="switchMainTab('contact', this)">בידוד מגע</button>
+        <button class="main-tab"        onclick="switchMainTab('cleaning', this)">ניקוי וחיטוי</button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: בידוד מגע
+══════════════════════════════════════ -->
+<div id="tab-contact" class="tab-panel active">
+    <div class="max-w-6xl mx-auto px-5 md:px-10 pt-6 pb-2">
+
+        <!-- Page header -->
+        <div class="mb-5">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900">בקרת אביזרי בידוד מגע</h1>
+            <p class="text-gray-500 mt-1 text-sm max-w-2xl">
+                323 תצפיות ב-11 מחלקות. התמונה הכוללת מראה עמידה חזקה בפרוטוקולי הבידוד.
+            </p>
+        </div>
+
+        <!-- Period mini-tabs -->
+        <div class="period-tab-bar mb-6">
+            <button class="period-tab" onclick="switchPeriod('contact', 'h1-2024', this)">חציון א׳ 2024</button>
+            <button class="period-tab" onclick="switchPeriod('contact', 'h2-2024', this)">חציון ב׳ 2024</button>
+            <button class="period-tab" onclick="switchPeriod('contact', 'h1-2025', this)">חציון א׳ 2025</button>
+            <button class="period-tab active" onclick="switchPeriod('contact', 'h2-2025', this)">חציון ב׳ 2025</button>
+        </div>
+
+        <!-- Period: חציון ב׳ 2025 (data) -->
+        <div id="contact-h2-2025" class="period-panel">
+
+            <!-- HERO -->
+            <div class="hero p-7 md:p-10 flex flex-col md:flex-row gap-8 md:items-center mb-6">
+                <div class="flex-shrink-0 text-center md:text-right">
+                    <div class="hero-badge mb-3">תוצאה כוללת</div>
+                    <div class="hero-number">98.2%</div>
+                    <div class="text-white font-semibold mt-2 text-lg">תאימות ממוצעת לפרוטוקולי הבידוד</div>
+                    <div class="hero-caption mt-1">ממוצע מכלל 11 פרמטרי הבקרה</div>
+                </div>
+                <div class="hidden md:block w-px bg-green-800 self-stretch"></div>
+                <div class="flex-1 space-y-4 text-green-100 text-sm leading-relaxed">
+                    <div>
+                        <span class="text-white font-semibold text-base block mb-1">מה זה אומר</span>
+                        מתוך 11 פרמטרי בקרה, <strong class="text-green-300">10 עמדו ב-100% תאימות מלאה</strong> — ציון יוצא דופן שמשקף עבודה מקצועית ועקבית של הצוות.
+                    </div>
+                    <div>
+                        <span class="text-white font-semibold text-base block mb-1">ההישג</span>
+                        צמיד כתום, שלט כניסה, סימון ברשומה, הדרכת צוות ועגלת הבידוד — כולם הגיעו לתוצאה מושלמת.
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI ROW -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-6">
+                <div class="card text-center">
+                    <div class="kpi-value">323</div>
+                    <div class="kpi-label">תצפיות</div>
+                    <div class="kpi-context">11 מחלקות</div>
+                </div>
+                <div class="card text-center">
+                    <div class="kpi-value text-green-600">98.2%</div>
+                    <div class="kpi-label">תאימות ממוצעת</div>
+                    <div class="kpi-context">ממוצע כלל הפרמטרים</div>
+                </div>
+                <div class="card text-center">
+                    <div class="kpi-value text-green-600">10/11</div>
+                    <div class="kpi-label">פרמטרים ב-100%</div>
+                    <div class="kpi-context">תאימות מלאה</div>
+                </div>
+                <div class="card text-center">
+                    <div class="kpi-value">0.84</div>
+                    <div class="kpi-label">דקות מענה</div>
+                    <div class="kpi-context">זמן ממוצע לסקר</div>
+                </div>
+            </div>
+
+            <!-- CHARTS -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+                <div class="card lg:col-span-3">
+                    <div class="card-title">עמידה בפרמטרי בידוד</div>
+                    <div class="card-sub mb-4">אחוז תאימות לפי פרמטר — מדורג מהנמוך לגבוה</div>
+                    <div id="chart-compliance" class="chart-box"></div>
+                </div>
+                <div class="card lg:col-span-2">
+                    <div class="card-title">השתתפות לפי מחלקה</div>
+                    <div class="card-sub mb-4">מספר תצפיות (סה"כ 323)</div>
+                    <div id="chart-departments" style="width:100%;height:380px;"></div>
+                </div>
+            </div>
+
+            <!-- IMPROVEMENT + CTA -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="improve-box md:col-span-1">
+                    <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">פרמטר לשיפור</div>
+                    <div class="font-semibold text-gray-800 text-sm mb-3">התמגנות לפני כניסה<br/><span class="font-normal text-gray-500 text-xs">316 תצפיות</span></div>
+                    <div class="score-bar-bg mb-2">
+                        <div class="score-bar-fill bg-lime-400" style="width:84.2%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500 mb-3">
+                        <span class="font-bold text-lime-600">84.2%</span><span>יעד: 100%</span>
+                    </div>
+                    <p class="text-gray-500 text-xs leading-relaxed">
+                        שאר האביזרים — כולל אוגר כביסה (98.1%) וציוד ייעודי (98.7%) — מצויים קרוב מאוד ליעד.
+                        שיפור בשלב הכניסה יביא את התמונה הכוללת לשלמות.
+                    </p>
+                </div>
+                <div class="cta-box md:col-span-2">
+                    <div class="font-bold text-blue-800 text-base mb-1">צעדים להשלמת התמונה</div>
+                    <p class="text-blue-600 text-sm mb-5">שלושה צעדים ממוקדים להעלאת ציון ההתמגנות:</p>
+                    <div class="space-y-4">
+                        <div class="cta-step">
+                            <div class="cta-num">1</div>
+                            <div>
+                                <div class="font-semibold text-blue-900 text-sm">מיפוי — שבוע הקרוב</div>
+                                <div class="text-blue-700 text-sm mt-1">בדקו לאילו מחלקות שייכים האירועים. האם פער הדרכה, מחסור בציוד, או לחץ זמן?</div>
+                            </div>
+                        </div>
+                        <div class="cta-step">
+                            <div class="cta-num">2</div>
+                            <div>
+                                <div class="font-semibold text-blue-900 text-sm">רענון ממוקד — תוך חודש</div>
+                                <div class="text-blue-700 text-sm mt-1">הדרכה קצרה לפרוטוקול כניסה. צ'קליסט חזותי בפתח כל חדר בידוד.</div>
+                            </div>
+                        </div>
+                        <div class="cta-step">
+                            <div class="cta-num">3</div>
+                            <div>
+                                <div class="font-semibold text-blue-900 text-sm">מדידה — חציון א׳ 2026</div>
+                                <div class="text-blue-700 text-sm mt-1">יעד: מעל 96%. על בסיס הביצועים הנוכחיים — זה בהישג יד.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /contact-h2-2025 -->
+
+        <!-- Period placeholders -->
+        <div id="contact-h1-2024" class="period-panel" style="display:none">
+            <div class="placeholder-pane mb-10">
+                <div class="text-5xl mb-4">📂</div>
+                <div class="font-semibold text-lg text-gray-400">נתוני חציון א׳ 2024</div>
+                <div class="text-sm mt-2">הנתונים לתקופה זו יתווספו בקרוב</div>
+            </div>
+        </div>
+        <div id="contact-h2-2024" class="period-panel" style="display:none">
+            <div class="placeholder-pane mb-10">
+                <div class="text-5xl mb-4">📂</div>
+                <div class="font-semibold text-lg text-gray-400">נתוני חציון ב׳ 2024</div>
+                <div class="text-sm mt-2">הנתונים לתקופה זו יתווספו בקרוב</div>
+            </div>
+        </div>
+        <div id="contact-h1-2025" class="period-panel" style="display:none">
+            <div class="placeholder-pane mb-10">
+                <div class="text-5xl mb-4">📂</div>
+                <div class="font-semibold text-lg text-gray-400">נתוני חציון א׳ 2025</div>
+                <div class="text-sm mt-2">הנתונים לתקופה זו יתווספו בקרוב</div>
+            </div>
+        </div>
+
+    </div>
+</div><!-- /tab-contact -->
+
+<!-- ══════════════════════════════════════
+     TAB: ניקוי וחיטוי
+══════════════════════════════════════ -->
+<div id="tab-cleaning" class="tab-panel">
+    <div class="max-w-6xl mx-auto px-5 md:px-10 pt-6 pb-2">
+
+        <div class="mb-5">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900">בקרת ניקוי וחיטוי</h1>
+            <p class="text-gray-500 mt-1 text-sm max-w-2xl">נתוני סקר ניקוי וחיטוי יוצגו כאן לאחר העברתם.</p>
+        </div>
+
+        <!-- Period mini-tabs -->
+        <div class="period-tab-bar mb-6">
+            <button class="period-tab" onclick="switchPeriod('cleaning', 'h1-2024', this)">חציון א׳ 2024</button>
+            <button class="period-tab" onclick="switchPeriod('cleaning', 'h2-2024', this)">חציון ב׳ 2024</button>
+            <button class="period-tab" onclick="switchPeriod('cleaning', 'h1-2025', this)">חציון א׳ 2025</button>
+            <button class="period-tab active" onclick="switchPeriod('cleaning', 'h2-2025', this)">חציון ב׳ 2025</button>
+        </div>
+
+        <div id="cleaning-h2-2025" class="period-panel">
+
+            <!-- HERO -->
+            <div class="hero p-7 md:p-10 flex flex-col md:flex-row gap-8 md:items-center mb-6">
+                <div class="flex-shrink-0 text-center md:text-right">
+                    <div class="hero-badge mb-3">תוצאה כוללת</div>
+                    <div class="hero-number">73.2%</div>
+                    <div class="text-white font-semibold mt-2 text-lg">ממוצע ניקיון לפי פרמטרים</div>
+                    <div class="hero-caption mt-1">ממוצע מכלל 12 פרמטרי הבדיקה</div>
+                </div>
+                <div class="hidden md:block w-px bg-green-800 self-stretch"></div>
+                <div class="flex-1 space-y-4 text-green-100 text-sm leading-relaxed">
+                    <div>
+                        <span class="text-white font-semibold text-base block mb-1">מה זה אומר</span>
+                        מתוך 14 פרמטרי בדיקה, <strong class="text-green-300">4 עמדו מעל 80%</strong> — ידיות הדלת (100%) ודפנות המיטה (86–88%). 10 פרמטרים נמצאים מתחת ל-70% ומהווים תחום לפיתוח.
+                    </div>
+                    <div>
+                        <span class="text-white font-semibold text-base block mb-1">הקשר</span>
+                        655 תצפיות ב-14 מחלקות. זהו סקר בסיס — הנתונים מאפשרים לזהות בדיוק אילו תחומים דורשים תשומת לב.
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI ROW -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-6">
+                <div class="card text-center">
+                    <div class="kpi-value">655</div>
+                    <div class="kpi-label">תצפיות</div>
+                    <div class="kpi-context">14 מחלקות</div>
+                </div>
+                <div class="card text-center">
+                    <div class="kpi-value" style="color:#f59e0b">73.2%</div>
+                    <div class="kpi-label">ממוצע ניקיון</div>
+                    <div class="kpi-context">ממוצע כלל הפרמטרים</div>
+                </div>
+                <div class="card text-center">
+                    <div class="kpi-value" style="color:#f59e0b">4/12</div>
+                    <div class="kpi-label">פרמטרים מעל 80%</div>
+                    <div class="kpi-context">מביצוע גבוה</div>
+                </div>
+                <div class="card text-center">
+                    <div class="kpi-value">2.59</div>
+                    <div class="kpi-label">דקות מענה</div>
+                    <div class="kpi-context">זמן ממוצע לסקר</div>
+                </div>
+            </div>
+
+            <!-- CHARTS -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+                <div class="card lg:col-span-3">
+                    <div class="card-title">ניקיון לפי פרמטר</div>
+                    <div class="card-sub mb-4">אחוז נקי מכלל התצפיות — מדורג מהנמוך לגבוה</div>
+                    <div id="chart-cleaning-compliance" style="width:100%;height:500px;"></div>
+                </div>
+                <div class="card lg:col-span-2">
+                    <div class="card-title">השתתפות לפי מחלקה</div>
+                    <div class="card-sub mb-4">מספר תצפיות (סה"כ 655)</div>
+                    <div id="chart-cleaning-departments" style="width:100%;height:380px;"></div>
+                </div>
+            </div>
+
+            <!-- IMPROVEMENT + CTA -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="improve-box md:col-span-1">
+                    <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">פרמטרים לשיפור עיקריים</div>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-semibold text-gray-700">פעולות ניקוי א׳</span>
+                                <span class="font-bold text-orange-500">56.0%</span>
+                            </div>
+                            <div class="score-bar-bg"><div class="score-bar-fill bg-orange-400" style="width:56%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-semibold text-gray-700">פעולות ניקוי ב׳</span>
+                                <span class="font-bold text-orange-500">57.5%</span>
+                            </div>
+                            <div class="score-bar-bg"><div class="score-bar-fill bg-orange-400" style="width:57.5%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-semibold text-gray-700">פעולות ניקוי ג׳</span>
+                                <span class="font-bold text-orange-500">58.9%</span>
+                            </div>
+                            <div class="score-bar-bg"><div class="score-bar-fill bg-orange-400" style="width:58.9%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-semibold text-gray-700">ציוד / מתקן ציוד</span>
+                                <span class="font-bold text-orange-500">63.5%</span>
+                            </div>
+                            <div class="score-bar-bg"><div class="score-bar-fill bg-orange-400" style="width:63.5%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="cta-box md:col-span-2">
+                    <div class="font-bold text-blue-800 text-base mb-1">צעדים להעלאת רמת הניקיון</div>
+                    <p class="text-blue-600 text-sm mb-5">שלושה צעדים ממוקדים לשיפור הפרמטרים הנמוכים:</p>
+                    <div class="space-y-4">
+                        <div class="cta-step">
+                            <div class="cta-num">1</div>
+                            <div>
+                                <div class="font-semibold text-blue-900 text-sm">מיפוי פריטים — שבוע הקרוב</div>
+                                <div class="text-blue-700 text-sm mt-1">6 פרמטרים מתחת ל-70% — בדקו אילו מחלקות אחראיות על רוב הכשלים ובאיזה סוג בדיקה (שגרתית / לאחר שחרור).</div>
+                            </div>
+                        </div>
+                        <div class="cta-step">
+                            <div class="cta-num">2</div>
+                            <div>
+                                <div class="font-semibold text-blue-900 text-sm">הדרכה ממוקדת — תוך חודש</div>
+                                <div class="text-blue-700 text-sm mt-1">פרוטוקול ניקוי לפרמטרים הנמוכים. צ'קליסט עם דגש על פינות הארונות, ציוד ומתקנים.</div>
+                            </div>
+                        </div>
+                        <div class="cta-step">
+                            <div class="cta-num">3</div>
+                            <div>
+                                <div class="font-semibold text-blue-900 text-sm">מדידה — חציון א׳ 2026</div>
+                                <div class="text-blue-700 text-sm mt-1">יעד: ממוצע ניקיון כללי מעל 80%. הדגש על פינות הארונות וציוד שנמצאים כעת ב-63–66%.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /cleaning-h2-2025 -->
+        <div id="cleaning-h1-2025" class="period-panel" style="display:none">
+            <div class="placeholder-pane mb-10">
+                <div class="text-5xl mb-4">📂</div>
+                <div class="font-semibold text-lg text-gray-400">נתוני חציון א׳ 2025</div>
+                <div class="text-sm mt-2">הנתונים לתקופה זו יתווספו בקרוב</div>
+            </div>
+        </div>
+        <div id="cleaning-h2-2024" class="period-panel" style="display:none">
+            <div class="placeholder-pane mb-10">
+                <div class="text-5xl mb-4">📂</div>
+                <div class="font-semibold text-lg text-gray-400">נתוני חציון ב׳ 2024</div>
+                <div class="text-sm mt-2">הנתונים לתקופה זו יתווספו בקרוב</div>
+            </div>
+        </div>
+        <div id="cleaning-h1-2024" class="period-panel" style="display:none">
+            <div class="placeholder-pane mb-10">
+                <div class="text-5xl mb-4">📂</div>
+                <div class="font-semibold text-lg text-gray-400">נתוני חציון א׳ 2024</div>
+                <div class="text-sm mt-2">הנתונים לתקופה זו יתווספו בקרוב</div>
+            </div>
+        </div>
+
+    </div>
+</div><!-- /tab-cleaning -->
+
+<!-- ══════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════ -->
+<script>
+    // ── Tab switching ──
+    function switchMainTab(tabId, btn) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.main-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + tabId).classList.add('active');
+        btn.classList.add('active');
+        setTimeout(() => { chartC && chartC.resize(); chartD && chartD.resize(); }, 50);
+    }
+
+    function switchPeriod(tabId, period, btn) {
+        // hide all period panels in this tab
+        document.querySelectorAll('#tab-' + tabId + ' .period-panel').forEach(p => p.style.display = 'none');
+        // deactivate all period tabs in this tab
+        btn.closest('.period-tab-bar').querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
+        // show selected
+        const el = document.getElementById(tabId + '-' + period);
+        if (el) el.style.display = 'block';
+        btn.classList.add('active');
+        setTimeout(() => { chartC && chartC.resize(); chartD && chartD.resize(); }, 50);
+    }
+
+    // ── Compliance Chart ──
+    const compliance = [
+        { name: 'התמגנות לפני כניסה (n=316)', pct: 84.2 },
+        { name: 'אוגר כביסה (n=317)',           pct: 98.1 },
+        { name: 'ציוד ייעודי (n=316)',           pct: 98.7 },
+        { name: 'סימון סביבת מיטה (n=308)',      pct: 99.7 },
+        { name: 'שלט כניסה (n=314)',              pct: 99.7 },
+        { name: 'מתקן/עגלה (n=318)',              pct: 100.0 },
+        { name: 'צמיד כתום (n=313)',              pct: 100.0 },
+        { name: 'סימון ברשומה (n=315)',            pct: 100.0 },
+        { name: 'הדרכה (n=311)',                   pct: 100.0 },
+        { name: 'החלפת מיגון (n=312)',             pct: 100.0 },
+        { name: 'הורדת כפפות (n=319)',             pct: 100.0 }
+    ].sort((a, b) => a.pct - b.pct);
+
+    const chartC = echarts.init(document.getElementById('chart-compliance'));
+    chartC.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: p => `${p[0].name}<br/><b>${p[0].value}%</b>` },
+        grid: { left: 10, right: 60, top: 10, bottom: 10, containLabel: true },
+        xAxis: {
+            type: 'value', min: 78, max: 100,
+            axisLabel: { formatter: '{value}%', fontSize: 11 },
+            splitLine: { lineStyle: { color: '#f1f5f9' } }
+        },
+        yAxis: {
+            type: 'category',
+            data: compliance.map(o => o.name),
+            axisTick: { show: false }, axisLine: { show: false },
+            axisLabel: { fontSize: 11, color: '#475569' }
+        },
+        series: [{
+            type: 'bar', barMaxWidth: 22,
+            data: compliance.map(o => ({
+                value: o.pct,
+                itemStyle: {
+                    color: o.pct > 90 ? '#22c55e' : o.pct > 80 ? '#a3e635' : o.pct > 70 ? '#fde047' : o.pct > 50 ? '#f97316' : '#ef4444',
+                    borderRadius: [0, 4, 4, 0]
+                }
+            })),
+            label: { show: true, position: 'right', formatter: p => p.value + '%', fontWeight: 700, fontSize: 12 },
+            markLine: {
+                silent: true,
+                lineStyle: { color: '#94a3b8', type: 'dashed', width: 1 },
+                data: [{ xAxis: 95, label: { formatter: 'יעד 95%', position: 'end', fontSize: 10 } }]
+            }
+        }]
+    });
+
+    // ── Department Chart ──
+    const departments = [
+        { name: "סיעוד מורכב א'", count: 80 },
+        { name: 'הנשמה ממושכת ב',  count: 55 },
+        { name: 'טיפול תומך',       count: 54 },
+        { name: "סיעוד מורכב ב'",  count: 49 },
+        { name: 'הנשמה ממושכת ג',  count: 29 },
+        { name: 'פנימית תת אקוטית', count: 24 },
+        { name: 'שיקום נוירולוגי',  count: 9  },
+        { name: 'הנשמה ממושכת א',  count: 3  },
+        { name: 'סיעודית',           count: 2  },
+        { name: 'הנשמה ממושכת ד',  count: 2  },
+        { name: 'שיקום אורתופדי',   count: 1  }
+    ].sort((a, b) => a.count - b.count);
+    const deptColors = ['#a78bfa','#8b5cf6','#6366f1','#818cf8','#60a5fa','#3b82f6','#06b6d4','#14b8a6','#34d399','#4ade80','#86efac'];
+
+    const chartD = echarts.init(document.getElementById('chart-departments'));
+    chartD.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: p => `${p[0].name}<br/><b>${p[0].value} תצפיות</b>` },
+        grid: { left: 10, right: 50, top: 8, bottom: 8, containLabel: true },
+        xAxis: { type: 'value', axisLabel: { fontSize: 10 }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+        yAxis: {
+            type: 'category',
+            data: departments.map(d => d.name),
+            axisTick: { show: false }, axisLine: { show: false },
+            axisLabel: { fontSize: 11, color: '#374151' }
+        },
+        series: [{
+            type: 'bar', barMaxWidth: 20,
+            data: departments.map((d, i) => ({
+                value: d.count,
+                itemStyle: { color: deptColors[i], borderRadius: [0, 4, 4, 0] }
+            })),
+            label: { show: true, position: 'right', fontSize: 11, fontWeight: 600, color: '#374151' }
+        }]
+    });
+
+    // ── Cleaning Compliance Chart ──
+    const cleaningItems = [
+        { name: 'כפתור כיול אחוז חמצן (n=598)',       pct: 56.02 },
+        { name: 'פעמון מצוקה (n=609)',                pct: 57.47 },
+        { name: 'כפתור הפעלת הסקשין (n=596)',         pct: 58.89 },
+        { name: 'עמוד / מתלה עירוי (n=624)',          pct: 63.46 },
+        { name: 'פאנל הכפתורים (n=624)',              pct: 65.71 },
+        { name: 'מתג תאורה (n=3)',                    pct: 66.67 },
+        { name: 'מתג הפעלת המזגן (n=3)',              pct: 66.67 },
+        { name: 'ארונית המטופל (n=617)',               pct: 69.53 },
+        { name: 'דפנת המיטה השמאלית (n=625)',         pct: 86.24 },
+        { name: 'דפנת המיטה הימנית (n=632)',          pct: 88.29 },
+        { name: 'ידית דלת כניסה מבחוץ (n=3)',         pct: 100   },
+        { name: 'ידית דלת כניסה מבפנים (n=3)',        pct: 100   }
+    ];
+
+    const cleaningEl = document.getElementById('chart-cleaning-compliance');
+    let chartCL = null;
+    function initCleaningChart() {
+        if (!cleaningEl || chartCL) return;
+        chartCL = echarts.init(cleaningEl);
+        chartCL.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: p => `${p[0].name}<br/><b>${p[0].value}%</b>` },
+            grid: { left: 10, right: 65, top: 10, bottom: 10, containLabel: true },
+            xAxis: {
+                type: 'value', min: 40, max: 100,
+                axisLabel: { formatter: '{value}%', fontSize: 11 },
+                splitLine: { lineStyle: { color: '#f1f5f9' } }
+            },
+            yAxis: {
+                type: 'category',
+                data: cleaningItems.map(o => o.name),
+                axisTick: { show: false }, axisLine: { show: false },
+                axisLabel: { fontSize: 11, color: '#475569' }
+            },
+            series: [{
+                type: 'bar', barMaxWidth: 22,
+                data: cleaningItems.map(o => ({
+                    value: o.pct,
+                    itemStyle: {
+                        color: o.pct > 90 ? '#22c55e' : o.pct > 80 ? '#a3e635' : o.pct > 70 ? '#fde047' : o.pct > 50 ? '#f97316' : '#ef4444',
+                        borderRadius: [0, 4, 4, 0]
+                    }
+                })),
+                label: { show: true, position: 'right', formatter: p => p.value + '%', fontWeight: 700, fontSize: 12 },
+                markLine: {
+                    silent: true,
+                    lineStyle: { color: '#94a3b8', type: 'dashed', width: 1 },
+                    data: [{ xAxis: 80, label: { formatter: 'יעד 80%', position: 'end', fontSize: 10 } }]
+                }
+            }]
+        });
+    }
+
+    // ── Cleaning Department Chart ──
+    const cleaningDepts = [
+        { name: 'הנשמה ממושכת ג',         count: 6  },
+        { name: 'הנשמה ממושכת ד',         count: 8  },
+        { name: 'הנשמה ממושכת ב',         count: 10 },
+        { name: 'הנשמה ממושכת א',         count: 11 },
+        { name: 'שיקום נוירולוגי (1א)',   count: 46 },
+        { name: 'הנשמה ממושכת (9ג)',      count: 49 },
+        { name: 'הנשמה ממושכת (9א)',      count: 56 },
+        { name: 'הנשמה ממושכת (9ב)',      count: 57 },
+        { name: 'שיקום',                  count: 59 },
+        { name: 'טיפול תומך (4א)',        count: 61 },
+        { name: 'רפואה דחופה (פנימית 11)', count: 65 },
+        { name: 'סיעודיות מורכבות (4א)', count: 68 },
+        { name: 'סיעודיות מורכבות (9א)', count: 72 },
+        { name: 'סיעודית א (3 קומות)',    count: 87 }
+    ];
+    const cleaningDeptColors = ['#c4b5fd','#a78bfa','#8b5cf6','#7c3aed','#6366f1','#818cf8','#60a5fa','#3b82f6','#06b6d4','#0891b2','#14b8a6','#10b981','#34d399','#4ade80'];
+
+    const cleaningDeptEl = document.getElementById('chart-cleaning-departments');
+    let chartCD = null;
+    function initCleaningDeptChart() {
+        if (!cleaningDeptEl || chartCD) return;
+        chartCD = echarts.init(cleaningDeptEl);
+        chartCD.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: p => `${p[0].name}<br/><b>${p[0].value} תצפיות</b>` },
+            grid: { left: 10, right: 50, top: 8, bottom: 8, containLabel: true },
+            xAxis: { type: 'value', axisLabel: { fontSize: 10 }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+            yAxis: {
+                type: 'category',
+                data: cleaningDepts.map(d => d.name),
+                axisTick: { show: false }, axisLine: { show: false },
+                axisLabel: { fontSize: 10, color: '#374151' }
+            },
+            series: [{
+                type: 'bar', barMaxWidth: 18,
+                data: cleaningDepts.map((d, i) => ({
+                    value: d.count,
+                    itemStyle: { color: cleaningDeptColors[i], borderRadius: [0, 4, 4, 0] }
+                })),
+                label: { show: true, position: 'right', fontSize: 11, fontWeight: 600, color: '#374151' }
+            }]
+        });
+    }
+
+    // Init cleaning charts when tab becomes visible
+    const origSwitchMain = window.switchMainTab;
+    window.switchMainTab = function(tabId, btn) {
+        origSwitchMain(tabId, btn);
+        if (tabId === 'cleaning') { setTimeout(() => { initCleaningChart(); initCleaningDeptChart(); }, 60); }
+    };
+    const origSwitchPeriod = window.switchPeriod;
+    window.switchPeriod = function(tabId, period, btn) {
+        origSwitchPeriod(tabId, period, btn);
+        if (tabId === 'cleaning' && period === 'h2-2025') { setTimeout(() => { initCleaningChart(); initCleaningDeptChart(); }, 60); }
+    };
+
+    window.addEventListener('resize', () => {
+        chartC && chartC.resize();
+        chartD && chartD.resize();
+        chartCL && chartCL.resize();
+        chartCD && chartCD.resize();
+    });
+</script>
+</body>
+</html>
